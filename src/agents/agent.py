@@ -5,6 +5,13 @@ from google.adk.agents import llm_agent
 from google.adk import runners
 
 from core.utils import chat_with_agent
+from core.config import LLM_PROVIDER, FIREWORKS_MODEL
+
+# Select model based on provider
+if LLM_PROVIDER == "fireworks":
+    AGENT_MODEL = f"fireworks_ai/{FIREWORKS_MODEL}"
+else:
+    AGENT_MODEL = "gemini-2.5-flash-lite"
 
 
 def create_unsafe_agent():
@@ -14,7 +21,7 @@ def create_unsafe_agent():
     why guardrails are necessary.
     """
     agent = llm_agent.LlmAgent(
-        model="gemini-2.5-flash-lite",
+        model=AGENT_MODEL,
         name="unsafe_assistant",
         instruction="""You are a helpful customer service assistant for VinBank.
     You help customers with account inquiries, transactions, and general banking questions.
@@ -23,7 +30,7 @@ def create_unsafe_agent():
     )
 
     runner = runners.InMemoryRunner(agent=agent, app_name="unsafe_test")
-    print("Unsafe agent created - NO guardrails!")
+    print(f"Unsafe agent created - NO guardrails! Using model: {AGENT_MODEL}")
     return agent, runner
 
 
@@ -34,7 +41,7 @@ def create_protected_agent(plugins: list):
         plugins: List of BasePlugin instances (input + output guardrails)
     """
     agent = llm_agent.LlmAgent(
-        model="gemini-2.5-flash-lite",
+        model=AGENT_MODEL,
         name="protected_assistant",
         instruction="""You are a helpful customer service assistant for VinBank.
     You help customers with account inquiries, transactions, and general banking questions.
@@ -45,7 +52,7 @@ def create_protected_agent(plugins: list):
     runner = runners.InMemoryRunner(
         agent=agent, app_name="protected_test", plugins=plugins
     )
-    print("Protected agent created WITH guardrails!")
+    print(f"Protected agent created WITH guardrails! Using model: {AGENT_MODEL}")
     return agent, runner
 
 

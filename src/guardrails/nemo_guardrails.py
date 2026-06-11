@@ -21,15 +21,6 @@ NEMO_YAML_CONFIG = textwrap.dedent("""\
       - type: main
         engine: google
         model: gemini-2.5-flash-lite
-
-    rails:
-      input:
-        flows:
-          - check user message
-
-      output:
-        flows:
-          - check bot response
 """)
 
 
@@ -142,6 +133,9 @@ COLANG_CONFIG = textwrap.dedent("""\
 nemo_rails = None
 
 
+from core.config import LLM_PROVIDER, FIREWORKS_MODEL
+
+
 def init_nemo():
     """Initialize NeMo Guardrails with the Colang config."""
     global nemo_rails
@@ -149,8 +143,42 @@ def init_nemo():
         print("Skipping NeMo init — nemoguardrails not installed.")
         return None
 
+    # Patch OpenAIChatModel to strip <think>...</think> tags and handle stop tokens
+    try:
+        from nemoguardrails.llm.models.openai_chat import OpenAIChatModel
+        import re
+        original_generate_async = OpenAIChatModel.generate_async
+        async def patched_generate_async(self, prompt, *, stop=None, **kwargs):
+            if stop and "\n" in stop:
+                stop = [s for s in stop if s != "\n"]
+            kwargs["max_tokens"] = 1024
+            res = await original_generate_async(self, prompt, stop=stop, **kwargs)
+            if res and res.content:
+                res.content = re.sub(r'<think>.*?</think>', '', res.content, flags=re.DOTALL).strip()
+                if '<think>' in res.content and '</think>' not in res.content:
+                    res.content = re.sub(r'<think>.*$', '', res.content, flags=re.DOTALL).strip()
+            return res
+        OpenAIChatModel.generate_async = patched_generate_async
+    except Exception as e:
+        print(f"Warning: Could not patch OpenAIChatModel: {e}")
+
+    if LLM_PROVIDER == "fireworks":
+        import os
+        yaml_content = f"""
+models:
+  - type: main
+    engine: openai
+    model: {FIREWORKS_MODEL}
+    parameters:
+      base_url: "https://api.fireworks.ai/inference/v1"
+      api_key: "{os.getenv('FIREWORKS_API_KEY', '')}"
+      max_tokens: 1024
+"""
+    else:
+        yaml_content = NEMO_YAML_CONFIG
+
     config = RailsConfig.from_content(
-        yaml_content=NEMO_YAML_CONFIG,
+        yaml_content=yaml_content,
         colang_content=COLANG_CONFIG,
     )
     nemo_rails = LLMRails(config)

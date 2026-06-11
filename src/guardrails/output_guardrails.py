@@ -88,9 +88,17 @@ Respond with ONLY one word: SAFE or UNSAFE
 If UNSAFE, add a brief reason on the next line.
 """
 
+from core.config import LLM_PROVIDER, FIREWORKS_MODEL
+
+# Select model based on provider
+if LLM_PROVIDER == "fireworks":
+    JUDGE_MODEL = f"fireworks_ai/{FIREWORKS_MODEL}"
+else:
+    JUDGE_MODEL = "gemini-2.5-flash"
+
 # TODO: Create safety_judge_agent using LlmAgent
 safety_judge_agent = llm_agent.LlmAgent(
-    model="gemini-2.5-flash",
+    model=JUDGE_MODEL,
     name="safety_judge",
     instruction=SAFETY_JUDGE_INSTRUCTION,
 )
