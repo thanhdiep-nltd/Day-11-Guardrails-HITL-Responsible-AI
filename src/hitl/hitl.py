@@ -65,71 +65,69 @@ class ConfidenceRouter:
         Returns:
             RoutingDecision with routing action and metadata
         """
-        # TODO 12: Implement routing logic
-        #
         # 1. Check if action_type is in HIGH_RISK_ACTIONS
-        #    -> If yes: always escalate (action="escalate", priority="high",
-        #       requires_human=True, reason="High-risk action: {action_type}")
-        #
-        # 2. Check confidence thresholds:
-        #    - confidence >= 0.9:
-        #      action="auto_send", priority="low",
-        #      requires_human=False, reason="High confidence"
-        #
-        #    - 0.7 <= confidence < 0.9:
-        #      action="queue_review", priority="normal",
-        #      requires_human=True, reason="Medium confidence — needs review"
-        #
-        #    - confidence < 0.7:
-        #      action="escalate", priority="high",
-        #      requires_human=True, reason="Low confidence — escalating"
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high",
+                requires_human=True,
+            )
 
-        return RoutingDecision(
-            action="auto_send",
-            confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+        # 2. Check confidence thresholds:
+        if confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send",
+                confidence=confidence,
+                reason="High confidence",
+                priority="low",
+                requires_human=False,
+            )
+        elif self.MEDIUM_THRESHOLD <= confidence < self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review",
+                confidence=confidence,
+                reason="Medium confidence — needs review",
+                priority="normal",
+                requires_human=True,
+            )
+        else:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason="Low confidence — escalating",
+                priority="high",
+                requires_human=True,
+            )
 
 
 # ============================================================
 # TODO 13: Design 3 HITL decision points
-#
-# For each decision point, define:
-# - trigger: What condition activates this HITL check?
-# - hitl_model: Which model? (human-in-the-loop, human-on-the-loop,
-#   human-as-tiebreaker)
-# - context_needed: What info does the human reviewer need?
-# - example: A concrete scenario
-#
-# Think about real banking scenarios where human judgment is critical.
-# ============================================================
-
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Xác thực giao dịch chuyển tiền giá trị lớn",
+        "trigger": "Khách hàng yêu cầu chuyển khoản một số tiền vượt quá 50,000,000 VND.",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "Thông tin chi tiết người gửi, số tài khoản thụ hưởng, số tiền, và lịch sử giao dịch gần đây của tài khoản gửi.",
+        "example": "Người dùng yêu cầu chuyển 100,000,000 VND đến một tài khoản lạ lần đầu tiên xuất hiện trong danh bạ.",
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Xác nhận đóng tài khoản hoặc tất toán sổ tiết kiệm trước hạn",
+        "trigger": "Yêu cầu từ người dùng muốn khóa tài khoản thanh toán hoặc rút toàn bộ tiền tiết kiệm sớm.",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "Thông tin định danh của chủ tài khoản, số dư hiện tại, lý do tất toán trước hạn, và kiểm tra cuộc gọi video xác minh (nếu có).",
+        "example": "Khách hàng muốn tất toán gấp sổ tiết kiệm 500,000,000 VND trước hạn 6 tháng do nghi ngờ có cuộc gọi mạo danh cơ quan chức năng đe dọa.",
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Phát hiện hành vi trò chuyện bất thường hoặc có dấu hiệu leo thang tấn công",
+        "trigger": "Hệ thống Guardrails phát hiện nhiều phản hồi bị chặn liên tiếp từ cùng một phiên người dùng hoặc điểm tin cậy LLM Judge đánh giá thấp (< 0.7).",
+        "hitl_model": "human-on-the-loop",
+        "context_needed": "Lịch sử cuộc hội thoại (chat logs) của phiên hiện tại, các cảnh báo guardrail đã kích hoạt, địa chỉ IP và lịch sử các lần đăng nhập gần đây.",
+        "example": "Một tài khoản liên tục gửi các câu hỏi tìm cách khai thác thông tin cấu hình hệ thống bằng nhiều ngôn ngữ khác nhau trong thời gian ngắn.",
     },
 ]
 
