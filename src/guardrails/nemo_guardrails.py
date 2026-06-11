@@ -3,6 +3,7 @@ Lab 11 — Part 2C: NeMo Guardrails
   TODO 9: Define Colang rules for banking safety
 """
 import textwrap
+import asyncio
 
 try:
     from nemoguardrails import RailsConfig, LLMRails
@@ -20,7 +21,7 @@ NEMO_YAML_CONFIG = textwrap.dedent("""\
     models:
       - type: main
         engine: google
-        model: gemini-2.5-flash-lite
+        model: gemini-3.1-flash-lite
 """)
 
 
@@ -132,9 +133,7 @@ COLANG_CONFIG = textwrap.dedent("""\
 
 nemo_rails = None
 
-
-from core.config import LLM_PROVIDER, FIREWORKS_MODEL
-
+from core.config import LLM_PROVIDER, OPENAI_MODEL
 
 def init_nemo():
     """Initialize NeMo Guardrails with the Colang config."""
@@ -143,39 +142,26 @@ def init_nemo():
         print("Skipping NeMo init — nemoguardrails not installed.")
         return None
 
-    # Patch OpenAIChatModel to strip <think>...</think> tags and handle stop tokens
-    try:
-        from nemoguardrails.llm.models.openai_chat import OpenAIChatModel
-        import re
-        original_generate_async = OpenAIChatModel.generate_async
-        async def patched_generate_async(self, prompt, *, stop=None, **kwargs):
-            if stop and "\n" in stop:
-                stop = [s for s in stop if s != "\n"]
-            kwargs["max_tokens"] = 1024
-            res = await original_generate_async(self, prompt, stop=stop, **kwargs)
-            if res and res.content:
-                res.content = re.sub(r'<think>.*?</think>', '', res.content, flags=re.DOTALL).strip()
-                if '<think>' in res.content and '</think>' not in res.content:
-                    res.content = re.sub(r'<think>.*$', '', res.content, flags=re.DOTALL).strip()
-            return res
-        OpenAIChatModel.generate_async = patched_generate_async
-    except Exception as e:
-        print(f"Warning: Could not patch OpenAIChatModel: {e}")
-
-    if LLM_PROVIDER == "fireworks":
-        import os
+    import os
+    if LLM_PROVIDER == "openai":
         yaml_content = f"""
 models:
   - type: main
     engine: openai
-    model: {FIREWORKS_MODEL}
+    model: {OPENAI_MODEL}
     parameters:
-      base_url: "https://api.fireworks.ai/inference/v1"
-      api_key: "{os.getenv('FIREWORKS_API_KEY', '')}"
-      max_tokens: 1024
+      api_key: "{os.getenv('OPENAI_API_KEY', '')}"
 """
     else:
-        yaml_content = NEMO_YAML_CONFIG
+        yaml_content = f"""
+models:
+  - type: main
+    engine: openai
+    model: gemini-3.1-flash-lite
+    parameters:
+      base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+      api_key: "{os.getenv('GOOGLE_API_KEY', '')}"
+"""
 
     config = RailsConfig.from_content(
         yaml_content=yaml_content,
@@ -205,18 +191,32 @@ async def test_nemo_guardrails():
     print("Testing NeMo Guardrails:")
     print("=" * 60)
     for msg in test_messages:
-        try:
-            result = await nemo_rails.generate_async(messages=[{
-                "role": "user",
-                "content": msg,
-            }])
-            response = result.get("content", result) if isinstance(result, dict) else str(result)
+        retries = 5
+        for attempt in range(retries):
+            try:
+                # Add a sleep to prevent immediate rate limit hitting
+                await asyncio.sleep(2)
+                result = await nemo_rails.generate_async(messages=[{
+                    "role": "user",
+                    "content": msg,
+                }])
+                response = result.get("content", result) if isinstance(result, dict) else str(result)
+                print(f"  User: {msg}")
+                print(f"  Bot:  {str(response)[:120]}")
+                print()
+                break
+            except Exception as e:
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
+                    print(f"  [Rate Limit] NeMo rate limited. Sleeping 35s before retry (Attempt {attempt+1}/{retries})...")
+                    await asyncio.sleep(35)
+                else:
+                    print(f"  User: {msg}")
+                    print(f"  Error: {e}")
+                    print()
+                    break
+        else:
             print(f"  User: {msg}")
-            print(f"  Bot:  {str(response)[:120]}")
-            print()
-        except Exception as e:
-            print(f"  User: {msg}")
-            print(f"  Error: {e}")
+            print(f"  Error: Rate limit exceeded after retries.")
             print()
 
 

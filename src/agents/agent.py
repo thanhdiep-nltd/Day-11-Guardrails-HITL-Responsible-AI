@@ -5,13 +5,13 @@ from google.adk.agents import llm_agent
 from google.adk import runners
 
 from core.utils import chat_with_agent
-from core.config import LLM_PROVIDER, FIREWORKS_MODEL
+from core.config import LLM_PROVIDER, OPENAI_MODEL
 
 # Select model based on provider
-if LLM_PROVIDER == "fireworks":
-    AGENT_MODEL = f"fireworks_ai/{FIREWORKS_MODEL}"
+if LLM_PROVIDER == "openai":
+    AGENT_MODEL = f"openai/{OPENAI_MODEL}"
 else:
-    AGENT_MODEL = "gemini-2.5-flash-lite"
+    AGENT_MODEL = "gemini-3.1-flash-lite"
 
 
 def create_unsafe_agent():

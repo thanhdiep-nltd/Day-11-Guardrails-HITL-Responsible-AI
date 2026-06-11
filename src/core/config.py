@@ -12,25 +12,26 @@ os.environ["LITELLM_LOCAL_RESOURCES"] = "True"
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-# LLM provider configuration: 'gemini' or 'fireworks'
+# LLM provider configuration: 'gemini' or 'openai'
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
 
-# Model identifier for Fireworks (e.g. accounts/fireworks/models/kimi-k2.6 or kimi-k2.6)
-FIREWORKS_MODEL = os.getenv("FIREWORKS_MODEL", "accounts/fireworks/models/kimi-k2.6")
+# Model identifier for OpenAI (e.g. gpt-4o-mini, gpt-4o)
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
 def setup_api_key():
     """Load API keys from environment or prompt based on the chosen provider."""
     global LLM_PROVIDER
-    if LLM_PROVIDER == "gemini":
+    if LLM_PROVIDER == "openai":
+        if "OPENAI_API_KEY" not in os.environ:
+            os.environ["OPENAI_API_KEY"] = input("Enter OpenAI API Key: ")
+        print("OpenAI API key loaded.")
+    else:
+        # Default to gemini
         if "GOOGLE_API_KEY" not in os.environ:
             os.environ["GOOGLE_API_KEY"] = input("Enter Google API Key: ")
         os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
         print("Google API key loaded.")
-    elif LLM_PROVIDER == "fireworks":
-        if "FIREWORKS_API_KEY" not in os.environ:
-            os.environ["FIREWORKS_API_KEY"] = input("Enter Fireworks API Key: ")
-        print("Fireworks API key loaded.")
 
 
 # Allowed banking topics (used by topic_filter)

@@ -80,7 +80,7 @@ async def run_attacks(agent, runner, prompts=None):
         # Add a delay between requests to avoid rate limits
         await asyncio.sleep(3)
 
-        retries = 3
+        retries = 5
         response = ""
         for attempt in range(retries):
             try:
@@ -88,8 +88,8 @@ async def run_attacks(agent, runner, prompts=None):
                 break
             except Exception as e:
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
-                    print(f"  [Rate Limit] Rate limited. Sleeping 10s before retry (Attempt {attempt+1}/{retries})...")
-                    await asyncio.sleep(10)
+                    print(f"  [Rate Limit] Rate limited. Sleeping 35s before retry (Attempt {attempt+1}/{retries})...")
+                    await asyncio.sleep(35)
                 else:
                     response = f"Error: {e}"
                     break
@@ -145,18 +145,36 @@ Format as JSON array. Make prompts detailed and realistic. Do not include any co
 """
 
 
-from core.config import LLM_PROVIDER, FIREWORKS_MODEL
+from core.config import LLM_PROVIDER, OPENAI_MODEL
 
 async def generate_ai_attacks() -> list:
-    """Use Gemini or Fireworks to generate adversarial prompts automatically.
+    """Use Gemini or OpenAI to generate adversarial prompts automatically.
 
     Returns:
         List of attack dicts with type, prompt, target, why_it_works
     """
-    retries = 3
+    retries = 5
     text = ""
 
-    if LLM_PROVIDER == "gemini":
+    if LLM_PROVIDER == "openai":
+        import litellm
+        for attempt in range(retries):
+            try:
+                await asyncio.sleep(3)
+                response = litellm.completion(
+                    model=f"openai/{OPENAI_MODEL}",
+                    messages=[{"role": "user", "content": RED_TEAM_PROMPT}]
+                )
+                text = response.choices[0].message.content
+                break
+            except Exception as e:
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
+                    print(f"  [Rate Limit] Rate limited in AI attack generation. Sleeping 35s (Attempt {attempt+1}/{retries})...")
+                    await asyncio.sleep(35)
+                else:
+                    print(f"Error calling OpenAI: {e}")
+                    return []
+    else:
         client = genai.Client()
         response = None
         for attempt in range(retries):
@@ -164,39 +182,19 @@ async def generate_ai_attacks() -> list:
                 # Respect rate limit
                 await asyncio.sleep(3)
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash-lite",
+                    model="gemini-3.1-flash-lite",
                     contents=RED_TEAM_PROMPT,
                 )
                 break
             except Exception as e:
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
-                    print(f"  [Rate Limit] Rate limited in AI attack generation. Sleeping 12s (Attempt {attempt+1}/{retries})...")
-                    await asyncio.sleep(12)
+                    print(f"  [Rate Limit] Rate limited in AI attack generation. Sleeping 35s (Attempt {attempt+1}/{retries})...")
+                    await asyncio.sleep(35)
                 else:
                     print(f"Error calling Gemini: {e}")
                     return []
         if response:
             text = response.text
-
-    elif LLM_PROVIDER == "fireworks":
-        import litellm
-        for attempt in range(retries):
-            try:
-                # Respect rate limit
-                await asyncio.sleep(3)
-                response = litellm.completion(
-                    model=f"fireworks_ai/{FIREWORKS_MODEL}",
-                    messages=[{"role": "user", "content": RED_TEAM_PROMPT}]
-                )
-                text = response.choices[0].message.content
-                break
-            except Exception as e:
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
-                    print(f"  [Rate Limit] Rate limited in AI attack generation. Sleeping 12s (Attempt {attempt+1}/{retries})...")
-                    await asyncio.sleep(12)
-                else:
-                    print(f"Error calling Fireworks: {e}")
-                    return []
 
     if not text:
         print("Failed to get response from LLM.")

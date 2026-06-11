@@ -154,7 +154,7 @@ class SecurityTestPipeline:
         # Add a delay between requests to avoid rate limits
         await asyncio.sleep(3)
 
-        retries = 3
+        retries = 5
         response = ""
         for attempt in range(retries):
             try:
@@ -164,8 +164,8 @@ class SecurityTestPipeline:
                 break
             except Exception as e:
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "quota" in str(e).lower():
-                    print(f"  [Rate Limit] Rate limited in testing. Sleeping 10s before retry (Attempt {attempt+1}/{retries})...")
-                    await asyncio.sleep(10)
+                    print(f"  [Rate Limit] Rate limited in testing. Sleeping 35s before retry (Attempt {attempt+1}/{retries})...")
+                    await asyncio.sleep(35)
                 else:
                     response = f"Error: {e}"
                     break
