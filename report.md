@@ -2,8 +2,7 @@
 
 **Mã số sinh viên (Student ID):** 2A202600636  
 **Sinh viên thực hiện (Author):** Nguyễn Lê Thanh Điệp  
-**Môn học:** AICB-P1 — AI Agent Development  
-**Chủ đề:** Guardrails, HITL & Responsible AI  
+**Model**: gpt-4o-mini
 
 ---
 
